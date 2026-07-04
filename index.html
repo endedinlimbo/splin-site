@@ -1768,41 +1768,75 @@ function md5(s){
   return (u(a)+u(b)+u(c)+u(d)).toLowerCase();
 }
 
-// ─── Открыть оплату Robokassa ─────────────────────────────────────────────────
-async function robokassaPay(amount, description, invId) {
+// ─── Открыть оплату Robokassa (с фискализацией) ───────────────────────────────
+// items: массив позиций чека вида
+// { name, quantity, sum, payment_method, payment_object, tax }
+// Сумма всех items[].sum должна в точности равняться amount.
+async function robokassaPay(amount, description, invId, items) {
   var login    = 'splin_space';
   var pass1    = 'JSk400dNqZ1bZYcQW1fw';
   var sumStr   = parseFloat(amount).toFixed(2);
   var inv      = invId || Math.floor(Date.now() / 1000);
-  var sig      = await sha256hex(login + ':' + sumStr + ':' + inv + ':' + pass1);
+
+  var receiptObj = { items: items };
+  var receiptStr = JSON.stringify(receiptObj);
+  var receiptEnc = encodeURIComponent(receiptStr);
+
+  // Порядок строки для подписи с чеком:
+  // MerchantLogin:OutSum:InvId:Receipt(url-encoded):Password1
+  var sig = await sha256hex(login + ':' + sumStr + ':' + inv + ':' + receiptEnc + ':' + pass1);
+
   var url = 'https://auth.robokassa.ru/Merchant/Index.aspx'
     + '?MerchantLogin=' + encodeURIComponent(login)
     + '&OutSum='        + encodeURIComponent(sumStr)
     + '&InvId='         + encodeURIComponent(inv)
     + '&Description='   + encodeURIComponent(description)
+    + '&Receipt='       + receiptEnc
     + '&SignatureValue=' + sig
     + '&Encoding=utf-8';
   window.open(url, '_blank');
 }
 
+// Общий шаблон одной позиции чека для цифровых услуг сервера (без НДС)
+function makeReceiptItem(name, sum) {
+  return {
+    name: name,
+    quantity: 1,
+    sum: sum,
+    payment_method: 'full_payment',
+    payment_object: 'service',
+    tax: 'none'
+  };
+}
+
 function buyPassage() {
-  robokassaPay(100, 'Проходка на сервер SPLIN SMP', Date.now() % 2147483647);
+  var amount = 100;
+  robokassaPay(amount, 'Проходка на сервер SPLIN SMP', Date.now() % 2147483647,
+    [ makeReceiptItem('Проходка на сервер SPLIN SMP', amount) ]);
 }
 function buyUnban() {
-  robokassaPay(400, 'Быстрый разбан SPLIN SMP', Date.now() % 2147483647);
+  var amount = 400;
+  robokassaPay(amount, 'Быстрый разбан SPLIN SMP', Date.now() % 2147483647,
+    [ makeReceiptItem('Быстрый разбан SPLIN SMP', amount) ]);
 }
 function buyPrime() {
   var months = selectedPeriods['prime'];
   var price  = PRICES['prime'][months];
-  robokassaPay(price, 'SPLIN SMP Prime ' + months + ' мес.', Date.now() % 2147483647);
+  var name   = 'SPLIN SMP Prime ' + months + ' мес.';
+  robokassaPay(price, name, Date.now() % 2147483647,
+    [ makeReceiptItem(name, price) ]);
 }
 function buyPrimePlus() {
   var months = selectedPeriods['primeplus'];
   var price  = PRICES['primeplus'][months];
-  robokassaPay(price, 'SPLIN SMP Prime+ ' + months + ' мес.', Date.now() % 2147483647);
+  var name   = 'SPLIN SMP Prime+ ' + months + ' мес.';
+  robokassaPay(price, name, Date.now() % 2147483647,
+    [ makeReceiptItem(name, price) ]);
 }
 function buyBundle() {
-  robokassaPay(500, 'SPLIN SMP Проходка + Prime+ 3 мес.', Date.now() % 2147483647);
+  var amount = 500;
+  robokassaPay(amount, 'SPLIN SMP Проходка + Prime+ 3 мес.', Date.now() % 2147483647,
+    [ makeReceiptItem('SPLIN SMP Проходка + Prime+ 3 мес.', amount) ]);
 }
 
 document.addEventListener('DOMContentLoaded',function(){
