@@ -53,7 +53,7 @@ body::before{
   content:'';
   position:fixed;inset:0;
   background:
-    radial-gradient(ellipse 70% 50% at 85% 6%,  rgba(92,107,192,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 5%,  rgba(92,107,192,0.18) 0%, transparent 60%),
     radial-gradient(ellipse 60% 60% at 15% 85%, rgba(196,64,255,0.14) 0%, transparent 60%),
     radial-gradient(ellipse 40% 30% at 50% 50%, rgba(196,64,255,0.05) 0%, transparent 70%);
   pointer-events:none;z-index:0;
@@ -1772,6 +1772,19 @@ function md5(s){
 // items: массив позиций чека вида
 // { name, quantity, sum, payment_method, payment_object, tax }
 // Сумма всех items[].sum должна в точности равняться amount.
+// PHP-подобный urlencode: пробел -> '+', плюс экранирование символов,
+// которые encodeURIComponent оставляет как есть, а PHP urlencode - кодирует.
+// Robokassa на своей стороне при проверке подписи ожидает именно такое кодирование Receipt.
+function phpUrlEncode(str) {
+  return encodeURIComponent(str)
+    .replace(/%20/g, '+')
+    .replace(/!/g, '%21')
+    .replace(/'/g, '%27')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/\*/g, '%2A');
+}
+
 async function robokassaPay(amount, description, invId, items) {
   var login    = 'splin_space';
   var pass1    = 'JSk400dNqZ1bZYcQW1fw';
@@ -1780,7 +1793,7 @@ async function robokassaPay(amount, description, invId, items) {
 
   var receiptObj = { items: items };
   var receiptStr = JSON.stringify(receiptObj);
-  var receiptEnc = encodeURIComponent(receiptStr);
+  var receiptEnc = phpUrlEncode(receiptStr);
 
   // Порядок строки для подписи с чеком:
   // MerchantLogin:OutSum:InvId:Receipt(url-encoded):Password1
