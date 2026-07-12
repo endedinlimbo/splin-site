@@ -1796,15 +1796,19 @@ async function robokassaPay(amount, description, invId, items) {
   var receiptEnc = phpUrlEncode(receiptStr);
 
   // Порядок строки для подписи с чеком:
-  // MerchantLogin:OutSum:InvId:Receipt(url-encoded):Password1
+  // MerchantLogin:OutSum:InvId:Receipt(url-encoded один раз):Password1
   var sig = await sha256hex(login + ':' + sumStr + ':' + inv + ':' + receiptEnc + ':' + pass1);
+
+  // Для GET-запроса (ссылка на оплату) Receipt нужно закодировать ЕЩЁ РАЗ,
+  // непосредственно перед подстановкой в URL — так требует Robokassa.
+  var receiptUrlEnc = encodeURIComponent(receiptEnc);
 
   var url = 'https://auth.robokassa.ru/Merchant/Index.aspx'
     + '?MerchantLogin=' + encodeURIComponent(login)
     + '&OutSum='        + encodeURIComponent(sumStr)
     + '&InvId='         + encodeURIComponent(inv)
     + '&Description='   + encodeURIComponent(description)
-    + '&Receipt='       + receiptEnc
+    + '&Receipt='       + receiptUrlEnc
     + '&SignatureValue=' + sig
     + '&Encoding=utf-8';
   window.open(url, '_blank');
