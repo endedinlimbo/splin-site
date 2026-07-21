@@ -992,6 +992,12 @@ nav{
         <div class="page-desc">Поддержи сервер — это помогает развитию и стабильной работе.</div>
       </div>
     </div>
+    <div class="reveal" style="margin-bottom:22px;background:rgba(196,64,255,0.07);border:1px solid var(--border2);border-radius:14px;padding:18px 20px;">
+      <label for="mc-nickname" style="display:block;font-size:14px;font-weight:700;color:#fff;margin-bottom:8px;">Никнейм в Minecraft</label>
+      <input type="text" id="mc-nickname" placeholder="Введите ваш ник" autocomplete="off"
+        style="width:100%;max-width:320px;padding:10px 14px;border-radius:10px;border:1px solid var(--border2);background:rgba(0,0,0,0.3);color:#fff;font-size:14px;outline:none;">
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;">Укажите ник точно как в игре — на него будет выдан доступ.</div>
+    </div>
     <div class="rule-block-title reveal" style="margin-bottom:16px;">🔓 Разовые покупки</div>
     <div class="donate-cards reveal" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:36px;">
       <div class="donate-card" style="flex:1;min-width:220px;background:linear-gradient(135deg,rgba(196,64,255,0.10),rgba(92,107,192,0.10));border:1px solid var(--border2);border-radius:16px;padding:24px 22px;">
@@ -1652,65 +1658,53 @@ function phpUrlEncode(str) {
     .replace(/\)/g, '%29')
     .replace(/\*/g, '%2A');
 }
-async function robokassaPay(amount, description, invId, items) {
-  var login    = 'splin_space';
-  var pass1    = 'JSk400dNqZ1bZYcQW1fw';
-  var sumStr   = parseFloat(amount).toFixed(2);
-  var inv      = invId || Math.floor(Date.now() / 1000);
+async function startPayment(amount, description) {
+  var nicknameInput = document.getElementById('mc-nickname');
+  var nickname = nicknameInput ? nicknameInput.value.trim() : '';
 
-  var receiptObj = { items: items };
-  var receiptStr = JSON.stringify(receiptObj);
-  var receiptEnc = phpUrlEncode(receiptStr);
-  var sig = await sha256hex(login + ':' + sumStr + ':' + inv + ':' + receiptEnc + ':' + pass1);
-  var receiptUrlEnc = encodeURIComponent(receiptEnc);
-  var url = 'https://auth.robokassa.ru/Merchant/Index.aspx'
-    + '?MerchantLogin=' + encodeURIComponent(login)
-    + '&OutSum='        + encodeURIComponent(sumStr)
-    + '&InvId='         + encodeURIComponent(inv)
-    + '&Description='   + encodeURIComponent(description)
-    + '&Receipt='       + receiptUrlEnc
-    + '&SignatureValue=' + sig
-    + '&Encoding=utf-8';
-  window.open(url, '_blank');
-}
-function makeReceiptItem(name, sum) {
-  return {
-    name: name,
-    quantity: 1,
-    sum: sum,
-    payment_method: 'full_payment',
-    payment_object: 'service',
-    tax: 'none'
-  };
+  if (!nickname) {
+    alert('Пожалуйста, введите ваш никнейм в Minecraft перед оплатой.');
+    if (nicknameInput) nicknameInput.focus();
+    return;
+  }
+
+  try {
+    var response = await fetch('/api/create-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: amount, description: description, nickname: nickname })
+    });
+    var data = await response.json();
+    if (!response.ok || !data.payment_url) {
+      alert('Ошибка при создании оплаты: ' + (data.message || 'неизвестная ошибка'));
+      return;
+    }
+    window.open(data.payment_url, '_blank');
+  } catch (err) {
+    alert('Не удалось связаться с сервером. Попробуйте позже.');
+    console.error(err);
+  }
 }
 function buyPassage() {
-  var amount = 100;
-  robokassaPay(amount, 'Проходка на сервер SPLIN SMP', Date.now() % 2147483647,
-    [ makeReceiptItem('Проходка на сервер SPLIN SMP', amount) ]);
+  startPayment(100, 'Проходка на сервер SPLIN SMP');
 }
 function buyUnban() {
-  var amount = 400;
-  robokassaPay(amount, 'Быстрый разбан SPLIN SMP', Date.now() % 2147483647,
-    [ makeReceiptItem('Быстрый разбан SPLIN SMP', amount) ]);
+  startPayment(400, 'Быстрый разбан SPLIN SMP');
 }
 function buyPrime() {
   var months = selectedPeriods['prime'];
   var price  = PRICES['prime'][months];
   var name   = 'SPLIN SMP Prime ' + months + ' мес.';
-  robokassaPay(price, name, Date.now() % 2147483647,
-    [ makeReceiptItem(name, price) ]);
+  startPayment(price, name);
 }
 function buyPrimePlus() {
   var months = selectedPeriods['primeplus'];
   var price  = PRICES['primeplus'][months];
   var name   = 'SPLIN SMP Prime+ ' + months + ' мес.';
-  robokassaPay(price, name, Date.now() % 2147483647,
-    [ makeReceiptItem(name, price) ]);
+  startPayment(price, name);
 }
 function buyBundle() {
-  var amount = 500;
-  robokassaPay(amount, 'SPLIN SMP Проходка + Prime+ 3 мес.', Date.now() % 2147483647,
-    [ makeReceiptItem('SPLIN SMP Проходка + Prime+ 3 мес.', amount) ]);
+  startPayment(500, 'SPLIN SMP Проходка + Prime+ 3 мес.');
 }
 document.addEventListener('DOMContentLoaded',function(){
   var s1=document.getElementById('s1');
