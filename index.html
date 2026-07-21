@@ -992,12 +992,6 @@ nav{
         <div class="page-desc">Поддержи сервер — это помогает развитию и стабильной работе.</div>
       </div>
     </div>
-    <div class="reveal" style="margin-bottom:22px;background:rgba(196,64,255,0.07);border:1px solid var(--border2);border-radius:14px;padding:18px 20px;">
-      <label for="mc-nickname" style="display:block;font-size:14px;font-weight:700;color:#fff;margin-bottom:8px;">Никнейм в Minecraft</label>
-      <input type="text" id="mc-nickname" placeholder="Введите ваш ник" autocomplete="off"
-        style="width:100%;max-width:320px;padding:10px 14px;border-radius:10px;border:1px solid var(--border2);background:rgba(0,0,0,0.3);color:#fff;font-size:14px;outline:none;">
-      <div style="font-size:12px;color:var(--muted);margin-top:6px;">Укажите ник точно как в игре — на него будет выдан доступ.</div>
-    </div>
     <div class="rule-block-title reveal" style="margin-bottom:16px;">🔓 Разовые покупки</div>
     <div class="donate-cards reveal" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:36px;">
       <div class="donate-card" style="flex:1;min-width:220px;background:linear-gradient(135deg,rgba(196,64,255,0.10),rgba(92,107,192,0.10));border:1px solid var(--border2);border-radius:16px;padding:24px 22px;">
@@ -1658,15 +1652,8 @@ function phpUrlEncode(str) {
     .replace(/\)/g, '%29')
     .replace(/\*/g, '%2A');
 }
-async function startPayment(amount, description) {
-  var nicknameInput = document.getElementById('mc-nickname');
-  var nickname = nicknameInput ? nicknameInput.value.trim() : '';
-
-  if (!nickname) {
-    alert('Пожалуйста, введите ваш никнейм в Minecraft перед оплатой.');
-    if (nicknameInput) nicknameInput.focus();
-    return;
-  }
+async function startPayment(amount, description, nickname) {
+  if (!nickname) return;
 
   try {
     var response = await fetch('/api/create-payment', {
@@ -1686,25 +1673,25 @@ async function startPayment(amount, description) {
   }
 }
 function buyPassage() {
-  startPayment(100, 'Проходка на сервер SPLIN SMP');
+  openNicknameModal(100, 'Проходка на сервер SPLIN SMP');
 }
 function buyUnban() {
-  startPayment(400, 'Быстрый разбан SPLIN SMP');
+  openNicknameModal(400, 'Быстрый разбан SPLIN SMP');
 }
 function buyPrime() {
   var months = selectedPeriods['prime'];
   var price  = PRICES['prime'][months];
   var name   = 'SPLIN SMP Prime ' + months + ' мес.';
-  startPayment(price, name);
+  openNicknameModal(price, name);
 }
 function buyPrimePlus() {
   var months = selectedPeriods['primeplus'];
   var price  = PRICES['primeplus'][months];
   var name   = 'SPLIN SMP Prime+ ' + months + ' мес.';
-  startPayment(price, name);
+  openNicknameModal(price, name);
 }
 function buyBundle() {
-  startPayment(500, 'SPLIN SMP Проходка + Prime+ 3 мес.');
+  openNicknameModal(500, 'SPLIN SMP Проходка + Prime+ 3 мес.');
 }
 document.addEventListener('DOMContentLoaded',function(){
   var s1=document.getElementById('s1');
@@ -1712,6 +1699,70 @@ document.addEventListener('DOMContentLoaded',function(){
   runReveal();
 });
 runReveal();
+</script>
+
+<div id="nickname-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1a0d24;border:1px solid var(--border2);border-radius:16px;padding:28px 26px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:6px;">Укажите ваш никнейм</div>
+    <div id="nm-item-desc" style="font-size:13px;color:var(--muted);margin-bottom:18px;"></div>
+    <input type="text" id="nm-input" placeholder="Ник как в игре" autocomplete="off"
+      style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border2);background:rgba(0,0,0,0.35);color:#fff;font-size:14px;outline:none;box-sizing:border-box;">
+    <div id="nm-error" style="font-size:12px;color:#f87171;margin-top:8px;min-height:16px;"></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">
+      Проверьте ник внимательно — доступ выдаётся автоматически именно на него.
+      Если после оплаты вас не добавило в вайтлист, напишите администрации в
+      <a href="https://discord.gg/NtnrkvqAHs" target="_blank" style="color:var(--acc);">Discord</a>.
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button onclick="closeNicknameModal()" class="period-buy-btn" style="background:rgba(255,255,255,0.08);flex:1;">Отмена</button>
+      <button onclick="confirmNickname()" class="period-buy-btn" style="flex:1;">Продолжить</button>
+    </div>
+  </div>
+</div>
+<script>
+var pendingPayment = null;
+
+function openNicknameModal(amount, description) {
+  pendingPayment = { amount: amount, description: description };
+  document.getElementById('nm-item-desc').textContent = description + ' — ' + amount + ' ₽';
+  document.getElementById('nm-input').value = '';
+  document.getElementById('nm-error').textContent = '';
+  document.getElementById('nickname-modal').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('nm-input').focus(); }, 50);
+}
+
+function closeNicknameModal() {
+  document.getElementById('nickname-modal').style.display = 'none';
+  pendingPayment = null;
+}
+
+function isValidNickname(nick) {
+  return /^[A-Za-z0-9_]{3,16}$/.test(nick);
+}
+
+async function confirmNickname() {
+  var nickname = document.getElementById('nm-input').value.trim();
+  var errorEl = document.getElementById('nm-error');
+
+  if (!nickname) {
+    errorEl.textContent = 'Введите никнейм.';
+    return;
+  }
+  if (!isValidNickname(nickname)) {
+    errorEl.textContent = 'Никнейм должен быть 3–16 символов: латинские буквы, цифры и "_" (как в майнкрафте).';
+    return;
+  }
+
+  errorEl.textContent = '';
+
+  if (!pendingPayment) return;
+  await startPayment(pendingPayment.amount, pendingPayment.description, nickname);
+  closeNicknameModal();
+}
+
+document.getElementById('nickname-modal').addEventListener('click', function(e){
+  if (e.target === this) closeNicknameModal();
+});
 </script>
 </body>
 </html>
