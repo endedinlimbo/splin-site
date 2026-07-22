@@ -1653,13 +1653,16 @@ function phpUrlEncode(str) {
     .replace(/\*/g, '%2A');
 }
 async function startPayment(amount, description, nickname) {
-  if (!nickname) return;
+  // nickname передаётся только для донатов, где нужен вайтлист (проходка/бандл).
+  // Для остальных донатов (разбан, прайм, прайм+) nickname не требуется.
+  var payload = { amount: amount, description: description };
+  if (nickname) payload.nickname = nickname;
 
   try {
     var response = await fetch('/api/create-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: amount, description: description, nickname: nickname })
+      body: JSON.stringify(payload)
     });
     var data = await response.json();
     if (!response.ok || !data.payment_url) {
@@ -1676,19 +1679,19 @@ function buyPassage() {
   openNicknameModal(100, 'Проходка на сервер SPLIN SMP');
 }
 function buyUnban() {
-  openNicknameModal(400, 'Быстрый разбан SPLIN SMP');
+  startPayment(400, 'Быстрый разбан SPLIN SMP');
 }
 function buyPrime() {
   var months = selectedPeriods['prime'];
   var price  = PRICES['prime'][months];
   var name   = 'SPLIN SMP Prime ' + months + ' мес.';
-  openNicknameModal(price, name);
+  startPayment(price, name);
 }
 function buyPrimePlus() {
   var months = selectedPeriods['primeplus'];
   var price  = PRICES['primeplus'][months];
   var name   = 'SPLIN SMP Prime+ ' + months + ' мес.';
-  openNicknameModal(price, name);
+  startPayment(price, name);
 }
 function buyBundle() {
   openNicknameModal(500, 'SPLIN SMP Проходка + Prime+ 3 мес.');
